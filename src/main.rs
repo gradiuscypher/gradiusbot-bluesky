@@ -1,54 +1,53 @@
 // ref: https://github.com/benwis/bisky/blob/main/examples/honk_bot/src/main.rs
-
-use bisky::atproto::{Client, Session};
+use bisky::atproto::{Client, ClientBuilder, UserSession};
 use bisky::bluesky::Bluesky;
 use bisky::lexicon::app::bsky::feed::Post;
 use bisky::storage::{File, Storage as _};
-use chrono::prelude::*;
 use clap::Parser;
 use std::path::PathBuf;
+use std::sync::Arc;
 use url::Url;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Arguments {
-    /// A file to store JSON Web Tokens in
     #[clap(index = 1)]
     storage: PathBuf,
-    /// Which atproto service to connect to
     #[clap(index = 2)]
     service: Url,
-    /// Username to log in with
     #[clap(index = 3)]
     username: String,
-    /// Password to log in with
     #[clap(index = 4)]
     password: String,
+    #[clap(index = 5)]
+    post_text: String,
 }
 
 #[tokio::main]
 async fn main() {
     let args = Arguments::parse();
+    let storage = Arc::new(File::<UserSession>::new(args.storage));
 
-    let mut storage = File::<Session>::new(args.storage);
-    if storage.get().await.is_err() {
-        Client::login(&args.service, &args.username, &args.password, &mut storage)
-            .await
-            .unwrap();
-    }
-    let post = Post {
-        text: "Test post from Rust!".to_string(),
-        created_at: Utc::now(),
-    };
+    let mut client = ClientBuilder::default()
+        .session(None)
+        .storage(storage)
+        .build()
+        .unwrap();
+    client
+        .login(&args.service, &args.username, &args.password)
+        .await
+        .unwrap();
+    let mut bsky = Bluesky::new(client);
 
-    let mut client = Bluesky::new(Client::new(args.service, storage).await.unwrap());
-
-    match client.me().post(post).await {
-        Ok(success) => {
-            println!("Successfully posted: {} - {}", success.cid, success.uri)
-        }
-        Err(e) => {
-            println!("I failed somehow: {:?}", e)
-        }
-    }
+    bsky.me()
+        .unwrap()
+        .post(Post {
+            text: args.post_text,
+            created_at: chrono::Utc::now(),
+            embed: None,
+            reply: None,
+            rust_type: None,
+        })
+        .await
+        .unwrap();
 }

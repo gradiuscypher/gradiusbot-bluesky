@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bisky = "0.1.4"
+bisky = {version = "0.1.4", git = "https://github.com/benwis/bisky.git"}
 chrono = "0.4.24"
 clap = { version = "4.2.5", features = ["derive"] }
 tokio = { version = "1.28.0", features = ["macros", "rt-multi-thread"] }
